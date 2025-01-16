@@ -31,7 +31,7 @@ class AtomicInt:
         async with self._lock:
             return self._value
 
-    async def set_value(self, value: int) -> int:
+    async def set_value(self, value: int) -> None:
         async with self._lock:
             self._value = value
 
@@ -58,15 +58,22 @@ class AtomicIntRateLimiter:
             time_window (int | float | timedelta): Time period in seconds for the rate limit (default: 1.0)
             slack (int): Additional allowance for brief bursts (default: 10)
         """
+        if not isinstance(rate_limit, int):
+            raise TypeError("rate_limit must be an integer")
+        if not isinstance(slack, int):
+            raise TypeError("slack must be an integer")
 
         if rate_limit <= 0:
             raise ValueError("Rate limit must be positive")
         if slack < 0:
             raise ValueError("Slack must be non-negative")
 
-        tw = time_window
         if isinstance(time_window, (int, float)):
             tw = timedelta(seconds=time_window)
+        elif isinstance(time_window, timedelta):
+            tw = time_window
+        else:
+            raise TypeError("time_window must be an int, float, or timedelta")
 
         if tw.total_seconds() <= 0:
             raise ValueError("Time window must be positive")
