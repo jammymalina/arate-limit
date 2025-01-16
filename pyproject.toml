@@ -1,0 +1,26 @@
+[project]
+name = "arate-limit"
+version = "0.1.0"
+description = "Asyncio rate limiter"
+readme = "README.md"
+authors = [
+    { name = "Jakub Jantosik", email = "jakub.jantosik@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [] 
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "pytest>=8.3.4",
+    "ruff>=0.9.2",
+]
+
+[tool.ruff]
+line-length = 120
+
+target-version = "py311"
