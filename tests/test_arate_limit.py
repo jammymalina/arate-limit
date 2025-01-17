@@ -11,7 +11,8 @@ from arate_limit import AtomicInt, AtomicIntRateLimiter, RedisSlidingWindowRateL
 
 @pytest.fixture(scope="function")
 async def redis_client() -> AsyncGenerator[redis_asyncio.Redis]:
-    async with redis_asyncio.Redis(host="redis") as client:
+    async with redis_asyncio.Redis(host="localhost", port=6379) as client:
+        await client.flushall()
         yield client
 
 
