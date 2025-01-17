@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 from pytest_mock import MockerFixture
 
-from arate_limit import AtomicInt, AtomicIntRateLimiter, TokenBucketRateLimiter
+from arate_limit import AtomicInt, AtomicIntRateLimiter, RedisSlidingWindowRateLimiter, TokenBucketRateLimiter
 
 
 async def test_atomic_int_init() -> None:
@@ -73,3 +73,7 @@ async def test_token_bucket_rate_limiter(mocker: MockerFixture) -> None:
 
     assert (end - start).total_seconds() == pytest.approx(5.0, 0.2)
     assert call_counter.await_count == 100
+
+
+async def test_redis_sliding_window_rate_limiter_init() -> None:
+    pass

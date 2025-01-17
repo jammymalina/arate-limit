@@ -3,6 +3,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import Any, Protocol, runtime_checkable
 
 INF = float("inf")
 INF_DURATION = 1 << 63 - 1
@@ -281,3 +282,120 @@ class TokenBucketRateLimiter(RateLimiter):
         if self._limit <= 0:
             return 0
         return d.total_seconds() * self._limit
+
+
+@runtime_checkable
+class RedisLuaScriptExecutor(Protocol):
+    async def __call__(self, keys: Any, args: Any, **kwargs) -> Any: ...
+
+
+@runtime_checkable
+class RedisLuaScriptRegistry(Protocol):
+    def register_script(self, script: str, **kwargs) -> RedisLuaScriptExecutor: ...
+
+
+class RedisSlidingWindowRateLimiter(RateLimiter):
+    _event_count: int
+    _time_window: int
+    _burst: int
+    _script: RedisLuaScriptExecutor
+    _key_prefix: str
+
+    def __init__(
+        self,
+        redis: RedisLuaScriptRegistry,
+        event_count: int,
+        time_window: int | float | timedelta = 1.0,
+        burst: int = 100,
+        key_prefix: str = "rate_limiter:",
+    ) -> None:
+        """
+        Initialize a rate limiter with specified parameters.
+
+        Args:
+            redis (RedisLuaScriptExecutor): A Redis client that can register and execute Lua scripts.
+                Must implement the RedisLuaScriptRegistry protocol which provides script registration
+                capabilities.
+            event_count (int): Maximum number of events allowed in the time window
+            time_window (int | float | timedelta): Time period in seconds (unless using timedelta) for the rate limit (default: 1.0)
+            burst (int): Burst allows more events to happen at once, must be greater than zero (default: 100)
+            key_prefix (str): Prefix for Redis keys to avoid collisions (default: rate_limiter)
+
+        Raises:
+            TypeError: If redis does not implement RedisLuaScriptRegistry protocol,
+                if event_count or burst is not an integer,
+                if time_window is not an int, float, or timedelta,
+                or if key_prefix is not a string
+            ValueError: If event_count or time_window is not positive, or if burst is less than or equal to 0
+        """
+        if not isinstance(redis, RedisLuaScriptRegistry):
+            raise TypeError("redis client must implement register_script")
+        if not isinstance(event_count, int):
+            raise TypeError("event_count must be an integer")
+        if not isinstance(burst, int):
+            raise TypeError("burst must be an integer")
+        if not isinstance(key_prefix, str):
+            raise TypeError("key_prefix must be a string")
+
+        if event_count <= 0:
+            raise ValueError("event_count must be positive")
+        if burst <= 0:
+            raise ValueError("burst must greater than 0")
+
+        if isinstance(time_window, (int, float)):
+            tw = timedelta(seconds=time_window)
+        elif isinstance(time_window, timedelta):
+            tw = time_window
+        else:
+            raise TypeError("time_window must be an int, float, or timedelta")
+
+        if tw.total_seconds() <= 0:
+            raise ValueError("time_window must be positive")
+
+        self._event_count = event_count
+        self._time_window = int(tw.total_seconds())
+        self._burst = burst
+        self._script = redis.register_script("""
+            local key = KEYS[1]
+            local now = tonumber(ARGV[1])
+            local window = tonumber(ARGV[2])
+            local max_events = tonumber(ARGV[3])
+            local burst = tonumber(ARGV[4])
+
+            -- Clean up old events
+            redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+
+            -- Count recent events
+            local count = redis.call('ZCARD', key)
+
+            -- Check if we're within limits
+            if count < max_events then
+                -- Add new event
+                redis.call('ZADD', key, now, now .. ':' .. math.random())
+                redis.call('EXPIRE', key, window)
+                return 0
+            end
+
+            -- Check burst limit
+            local recent_count = redis.call('ZCOUNT', key, now - 1, now)
+            if recent_count >= burst then
+                -- Get oldest event time
+                local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')[2]
+                return math.ceil(tonumber(oldest) + window - now)
+            end
+
+            return 0
+        """)
+        self._key_prefix = key_prefix
+
+    async def wait(self) -> None:
+        key = f"{self.key_prefix}{self.events_count}:{self.time_window}:{self.burst}"
+
+        while True:
+            now = datetime.now().timestamp()
+            delay = await self._script(keys=[key], args=[now, self.time_window, self.events_count, self.burst])
+
+            if delay == 0:
+                break
+
+            await asyncio.sleep(delay)
