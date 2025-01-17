@@ -389,11 +389,11 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
         self._key_prefix = key_prefix
 
     async def wait(self) -> None:
-        key = f"{self.key_prefix}{self.events_count}:{self.time_window}:{self.burst}"
+        key = f"{self._key_prefix}{self._event_count}:{self._time_window}:{self._burst}"
 
         while True:
             now = datetime.now().timestamp()
-            delay = await self._script(keys=[key], args=[now, self.time_window, self.events_count, self.burst])
+            delay = await self._script(keys=[key], args=[now, self._time_window, self._event_count, self._burst])
 
             if delay == 0:
                 break
