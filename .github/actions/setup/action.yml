@@ -16,5 +16,7 @@ runs:
         version: "0.5.20"
     - name: Verify lock file
       run: uv lock --check
+      shell: bash
     - name: Install the project
       run: uv sync --all-extras --dev
+      shell: bash

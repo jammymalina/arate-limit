@@ -4,9 +4,13 @@ runs:
   steps:
     - name: Run lint check
       run: uv run ruff check --exit-non-zero-on-fix
+      shell: bash
     - name: Run type check
       run: uv run mypy src
+      shell: bash
     - name: Run tests
       run: uv run pytest tests
+      shell: bash
     - name: Build the library
       run: uv build
+      shell: bash
