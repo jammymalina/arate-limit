@@ -297,7 +297,7 @@ class RedisLuaScriptRegistry(Protocol):
 class RedisSlidingWindowRateLimiter(RateLimiter):
     _event_count: int
     _time_window: int
-    _burst: int
+    _max_slack: int
     _script: RedisLuaScriptExecutor
     _key_prefix: str
 
@@ -306,7 +306,7 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
         redis: RedisLuaScriptRegistry,
         event_count: int,
         time_window: int | float | timedelta = 1.0,
-        burst: int = 100,
+        slack: int = 10,
         key_prefix: str = "rate_limiter:",
     ) -> None:
         """
@@ -318,7 +318,7 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
                 capabilities.
             event_count (int): Maximum number of events allowed in the time window
             time_window (int | float | timedelta): Time period in seconds (unless using timedelta) for the rate limit (default: 1.0)
-            burst (int): Burst allows more events to happen at once, must be greater than zero (default: 100)
+            slack (int): Additional allowance for brief bursts (default: 10)
             key_prefix (str): Prefix for Redis keys to avoid collisions (default: rate_limiter)
 
         Raises:
@@ -332,15 +332,15 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
             raise TypeError("redis client must implement register_script")
         if not isinstance(event_count, int):
             raise TypeError("event_count must be an integer")
-        if not isinstance(burst, int):
-            raise TypeError("burst must be an integer")
+        if not isinstance(slack, int):
+            raise TypeError("slack must be an integer")
         if not isinstance(key_prefix, str):
             raise TypeError("key_prefix must be a string")
 
         if event_count <= 0:
             raise ValueError("event_count must be positive")
-        if burst <= 0:
-            raise ValueError("burst must greater than 0")
+        if slack < 0:
+            raise ValueError("slack must greater than 0")
 
         if isinstance(time_window, (int, float)):
             tw = timedelta(seconds=time_window)
@@ -354,13 +354,13 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
 
         self._event_count = event_count
         self._time_window = int(tw.total_seconds())
-        self._burst = burst
+        self._max_slack = slack
         self._script = redis.register_script("""
             local key = KEYS[1]
             local now = tonumber(ARGV[1])
             local window = tonumber(ARGV[2])
             local max_events = tonumber(ARGV[3])
-            local burst = tonumber(ARGV[4])
+            local slack = tonumber(ARGV[4])
 
             -- Clean up old events
             redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
@@ -376,9 +376,9 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
                 return 0
             end
 
-            -- Check burst limit
+            -- Check slack limit
             local recent_count = redis.call('ZCOUNT', key, now - 1, now)
-            if recent_count >= burst then
+            if recent_count >= slack then
                 -- Get oldest event time
                 local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')[2]
                 return math.ceil(tonumber(oldest) + window - now)
@@ -389,11 +389,11 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
         self._key_prefix = key_prefix
 
     async def wait(self) -> None:
-        key = f"{self._key_prefix}{self._event_count}:{self._time_window}:{self._burst}"
+        key = f"{self._key_prefix}{self._event_count}:{self._time_window}:{self._max_slack}"
 
         while True:
             now = datetime.now().timestamp()
-            delay = await self._script(keys=[key], args=[now, self._time_window, self._event_count, self._burst])
+            delay = await self._script(keys=[key], args=[now, self._time_window, self._event_count, self._max_slack])
 
             if delay == 0:
                 break

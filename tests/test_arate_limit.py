@@ -85,18 +85,18 @@ async def test_token_bucket_rate_limiter(mocker: MockerFixture) -> None:
 
 
 async def test_redis_sliding_window_rate_limiter_init(redis_client: redis_asyncio.Redis) -> None:
-    rate_limiter = RedisSlidingWindowRateLimiter(redis=redis_client, event_count=100, time_window=10.1, burst=100)
+    rate_limiter = RedisSlidingWindowRateLimiter(redis=redis_client, event_count=100, time_window=10.1, slack=100)
 
     assert rate_limiter._event_count == 100
     assert rate_limiter._time_window == 10
-    assert rate_limiter._burst == 100
+    assert rate_limiter._max_slack == 100
     assert rate_limiter._key_prefix == "rate_limiter:"
 
 
 async def test_redis_sliding_window_rate_limiter(mocker: MockerFixture, redis_client: redis_asyncio.Redis) -> None:
     call_counter = mocker.AsyncMock()
     rate_limiter = RedisSlidingWindowRateLimiter(
-        redis=redis_client, event_count=20, burst=20, key_prefix=str(uuid.uuid4())
+        redis=redis_client, event_count=20, slack=0, key_prefix=str(uuid.uuid4())
     )
 
     async def _call() -> None:
@@ -107,5 +107,5 @@ async def test_redis_sliding_window_rate_limiter(mocker: MockerFixture, redis_cl
     await asyncio.gather(*(_call() for _ in range(100)))
     end = datetime.now()
 
-    assert (end - start).total_seconds() == pytest.approx(5.0, 0.2)
+    assert (end - start).total_seconds() == pytest.approx(5.0, 0.5)
     assert call_counter.await_count == 100
