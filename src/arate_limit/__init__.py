@@ -73,7 +73,7 @@ class RateLimiter(metaclass=abc.ABCMeta):
         ...
 
 
-class AtomicIntRateLimiter(RateLimiter):
+class LeakyBucketRateLimiter(RateLimiter):
     _per_request: int
     _max_slack: int
     _state: AtomicInt

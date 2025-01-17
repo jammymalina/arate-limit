@@ -7,7 +7,7 @@ import pytest
 import redis.asyncio as redis_asyncio
 from pytest_mock import MockerFixture
 
-from arate_limit import AtomicInt, AtomicIntRateLimiter, RedisSlidingWindowRateLimiter, TokenBucketRateLimiter
+from arate_limit import AtomicInt, LeakyBucketRateLimiter, RedisSlidingWindowRateLimiter, TokenBucketRateLimiter
 
 
 @pytest.fixture(scope="function")
@@ -37,17 +37,17 @@ async def test_atomic_int() -> None:
     assert not await value.compare_and_swap(12, 10)
 
 
-async def test_atomic_int_rate_limiter_init() -> None:
-    rate_limiter = AtomicIntRateLimiter(15, time_window=2.0, slack=10)
+async def test_leaky_bucket_rate_limiter_init() -> None:
+    rate_limiter = LeakyBucketRateLimiter(15, time_window=2.0, slack=10)
 
     assert rate_limiter._max_slack == 1333333330
     assert rate_limiter._per_request == 133333333
     assert await rate_limiter._state.get_value() == 0
 
 
-async def test_atomic_int_rate_limiter(mocker: MockerFixture) -> None:
+async def test_leaky_bucket_rate_limiter(mocker: MockerFixture) -> None:
     call_counter = mocker.AsyncMock()
-    rate_limiter = AtomicIntRateLimiter(20)
+    rate_limiter = LeakyBucketRateLimiter(20)
 
     async def _call() -> None:
         await rate_limiter.wait()
