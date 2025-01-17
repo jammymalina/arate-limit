@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 from pytest_mock import MockerFixture
 
-from arate_limit import AtomicInt, AtomicIntRateLimiter
+from arate_limit import AtomicInt, AtomicIntRateLimiter, TokenBucketRateLimiter
 
 
 async def test_atomic_int_init() -> None:
@@ -36,12 +36,35 @@ async def test_atomic_int_rate_limiter_init() -> None:
     assert await rate_limiter._state.get_value() == 0
 
 
-async def test_atomic_int_rate_limiter(mocker: MockerFixture) -> int:
+async def test_atomic_int_rate_limiter(mocker: MockerFixture) -> None:
     call_counter = mocker.AsyncMock()
     rate_limiter = AtomicIntRateLimiter(20)
 
     async def _call() -> None:
-        await rate_limiter.take()
+        await rate_limiter.wait()
+        await call_counter()
+
+    start = datetime.now()
+    await asyncio.gather(*(_call() for _ in range(100)))
+    end = datetime.now()
+
+    assert (end - start).total_seconds() == pytest.approx(5.0, 0.2)
+    assert call_counter.await_count == 100
+
+
+def test_token_bucket_rate_limiter_init() -> None:
+    rate_limiter = TokenBucketRateLimiter(100, time_window=2.0, burst=10)
+    assert rate_limiter._limit == pytest.approx(50.0, 0.1)
+    assert rate_limiter._burst == 10
+    assert rate_limiter._tokens == pytest.approx(10, 0.1)
+
+
+async def test_token_bucket_rate_limiter(mocker: MockerFixture) -> None:
+    call_counter = mocker.AsyncMock()
+    rate_limiter = TokenBucketRateLimiter(20, burst=20)
+
+    async def _call() -> None:
+        await rate_limiter.wait()
         await call_counter()
 
     start = datetime.now()
