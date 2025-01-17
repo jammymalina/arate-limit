@@ -1,0 +1,12 @@
+name: "Runs the build"
+runs:
+  using: "composite"
+  steps:
+    - name: Run lint check
+      run: uv run ruff check --exit-non-zero-on-fix
+    - name: Run type check
+      run: uv run mypy src
+    - name: Run tests
+      run: uv run pytest tests
+    - name: Build the library
+      run: uv build
