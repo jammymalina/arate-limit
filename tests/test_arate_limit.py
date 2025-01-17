@@ -9,7 +9,7 @@ from pytest_mock import MockerFixture
 from arate_limit import AtomicInt, AtomicIntRateLimiter, RedisSlidingWindowRateLimiter, TokenBucketRateLimiter
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def redis_client() -> AsyncGenerator[redis_asyncio.Redis]:
     async with redis_asyncio.Redis(host="redis") as client:
         yield client
