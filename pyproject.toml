@@ -1,13 +1,13 @@
 [project]
 name = "arate-limit"
-version = "0.1.0"
+version = "1.0.0"
 description = "Asyncio rate limiter"
 readme = "README.md"
 authors = [
     { name = "Jakub Jantosik", email = "jakub.jantosik@gmail.com" }
 ]
 requires-python = ">=3.11"
-dependencies = [] 
+dependencies = []
 
 [build-system]
 requires = ["hatchling"]
