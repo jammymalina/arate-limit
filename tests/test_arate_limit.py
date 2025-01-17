@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from datetime import datetime
 from typing import AsyncGenerator
 
@@ -12,7 +13,6 @@ from arate_limit import AtomicInt, AtomicIntRateLimiter, RedisSlidingWindowRateL
 @pytest.fixture(scope="function")
 async def redis_client() -> AsyncGenerator[redis_asyncio.Redis]:
     async with redis_asyncio.Redis(host="localhost", port=6379) as client:
-        await client.flushall()
         yield client
 
 
@@ -95,7 +95,9 @@ async def test_redis_sliding_window_rate_limiter_init(redis_client: redis_asynci
 
 async def test_redis_sliding_window_rate_limiter(mocker: MockerFixture, redis_client: redis_asyncio.Redis) -> None:
     call_counter = mocker.AsyncMock()
-    rate_limiter = RedisSlidingWindowRateLimiter(redis=redis_client, event_count=20, burst=20)
+    rate_limiter = RedisSlidingWindowRateLimiter(
+        redis=redis_client, event_count=20, burst=20, key_prefix=str(uuid.uuid4())
+    )
 
     async def _call() -> None:
         await rate_limiter.wait()
