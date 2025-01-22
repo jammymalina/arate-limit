@@ -27,11 +27,7 @@ jobs:
           - 6379:6379
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: ./.github/actions/build
+      - uses: ./.github/workflows/build.yml
 
   publish:
     needs: build
