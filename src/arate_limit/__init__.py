@@ -493,7 +493,7 @@ class RedisSlidingWindowApiRateLimiter(ApiRateLimiter):
             -- Check if we're within limits
             if count < max_events then
                 -- Add new event
-                redis.call('ZADD', key, now, tostring(now))
+                redis.call('ZADD', key, now, now .. ':' .. math.random())
                 redis.call('EXPIRE', key, window)
                 return {1, 0}
             end
