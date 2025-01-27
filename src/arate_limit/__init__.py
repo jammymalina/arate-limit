@@ -508,7 +508,7 @@ class RedisSlidingWindowApiRateLimiter(ApiRateLimiter):
 
     async def check(self, identifier: str) -> tuple[bool, int]:
         key = f"{self._key_prefix}{identifier}"
-        now = int(datetime.now().timestamp())
+        now = datetime.now().timestamp()
 
         result, time_remaining = await self._script(keys=[key], args=[now, self._time_window, self._event_count])
 
