@@ -98,7 +98,7 @@ import redis.asyncio as redis
 async def example():
     redis_client = redis.Redis(host='localhost', port=6379)
 
-    # Allow 1000 requests per minute
+    # Allow 1000 requests per minute per user
     limiter = RedisSlidingWindowApiRateLimiter(
         redis=redis_client,
         event_count=1000,
