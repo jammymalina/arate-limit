@@ -1,11 +1,26 @@
 [project]
 name = "arate-limit"
-version = "1.0.0"
+version = "1.1.0"
 description = "Asyncio rate limiter"
 readme = "README.md"
 authors = [
     { name = "Jakub Jantosik", email = "jakub.jantosik@gmail.com" }
 ]
+
+classifiers = [
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Information Technology',
+    'Operating System :: OS Independent',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Internet',
+]
+
 requires-python = ">=3.11"
 dependencies = []
 
