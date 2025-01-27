@@ -7,7 +7,13 @@ import pytest
 import redis.asyncio as redis_asyncio
 from pytest_mock import MockerFixture
 
-from arate_limit import AtomicInt, LeakyBucketRateLimiter, RedisSlidingWindowRateLimiter, TokenBucketRateLimiter
+from arate_limit import (
+    AtomicInt,
+    LeakyBucketRateLimiter,
+    RedisSlidingWindowApiRateLimiter,
+    RedisSlidingWindowRateLimiter,
+    TokenBucketRateLimiter,
+)
 
 
 @pytest.fixture(scope="function")
@@ -109,3 +115,24 @@ async def test_redis_sliding_window_rate_limiter(mocker: MockerFixture, redis_cl
 
     assert (end - start).total_seconds() == pytest.approx(5.0, 0.5)
     assert call_counter.await_count == 100
+
+
+async def test_redis_sliding_window_api_rate_limiter(redis_client: redis_asyncio.Redis) -> None:
+    event_count = 10
+    user_id = str(uuid.uuid4())
+    api_rate_limiter = RedisSlidingWindowApiRateLimiter(
+        redis=redis_client, event_count=event_count, time_window=10.0, key_prefix=str(uuid.uuid4())
+    )
+
+    for _ in range(event_count):
+        within_limit, time_remaining = await api_rate_limiter.check(user_id)
+        assert within_limit
+        assert isinstance(time_remaining, int)
+        assert time_remaining == 0
+
+    await asyncio.sleep(2.2)
+
+    within_limit, time_remaining = await api_rate_limiter.check(user_id)
+    assert not within_limit
+    assert isinstance(time_remaining, int)
+    assert 0 < time_remaining < 10

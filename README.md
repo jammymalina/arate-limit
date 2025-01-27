@@ -8,6 +8,7 @@ A flexible and robust rate limiting library for Python applications, offering mu
   - Leaky bucket rate limiter
   - Token bucket rate limiter
   - Redis-based sliding window rate limiter
+  - Redis-based sliding window API rate limiter
 - Async/await support using `asyncio`
 - Configurable time windows and burst allowances
 - Safe for concurrent access within asyncio applications
@@ -86,6 +87,32 @@ async def example():
     await limiter.wait()  # Wait for rate limit
 ```
 
+### Redis Sliding Window API Rate Limiter
+
+Distributed API rate limiting using Redis:
+
+```python
+from rate_limiter import RedisSlidingWindowApiRateLimiter
+import redis.asyncio as redis
+
+async def example():
+    redis_client = redis.Redis(host='localhost', port=6379)
+
+    # Allow 1000 requests per minute
+    limiter = RedisSlidingWindowApiRateLimiter(
+        redis=redis_client,
+        event_count=1000,
+        time_window=60,
+    )
+
+    result, time_remaining = await limiter.check("user-1")
+    if not result:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {time_remaining} seconds"
+        )
+```
+
 ## Configuration Options
 
 All rate limiters accept these common parameters:
@@ -102,7 +129,12 @@ Additional options per implementation:
 - `burst`: Maximum burst size (default: 100)
 
 ### RedisSlidingWindowRateLimiter
+- `redis`: Redis compatible client/interface
 - `slack`: Additional allowance for brief bursts (default: 10)
+- `key_prefix`: Prefix for Redis keys (default: "rate_limiter:")
+
+### RedisSlidingWindowApiRateLimiter
+- `redis`: Redis compatible client/interface
 - `key_prefix`: Prefix for Redis keys (default: "rate_limiter:")
 
 ## Error Handling
@@ -116,7 +148,8 @@ The rate limiters raise appropriate exceptions for invalid configurations:
 
 - `LeakyBucketRateLimiter`: Best for scenarios requiring steady, predictable request rates
 - `TokenBucketRateLimiter`: Efficient for bursty workloads
-- `RedisSlidingWindowRateLimiter`: Suitable for distributed systems, but requires Redis
+- `RedisSlidingWindowRateLimiter`: Suitable for distributed systems, but requires Redis or Redis compatible cache service
+- `RedisSlidingWindowApiRateLimiter`: Suitable for distributed systems, but requires Redis or Redis compatible cache service
 
 ## License
 

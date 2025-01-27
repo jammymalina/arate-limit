@@ -59,6 +59,7 @@ class RateLimiter(metaclass=abc.ABCMeta):
     implement the wait method.
     """
 
+    @abc.abstractmethod
     async def wait(self) -> None:
         """
         Wait until the next request is allowed according to the rate limiting strategy.
@@ -291,7 +292,7 @@ class RedisLuaScriptExecutor(Protocol):
 
 @runtime_checkable
 class RedisLuaScriptRegistry(Protocol):
-    def register_script(self, script: str, **kwargs) -> RedisLuaScriptExecutor: ...
+    def register_script(self, script: str | Any) -> RedisLuaScriptExecutor | Any: ...
 
 
 class RedisSlidingWindowRateLimiter(RateLimiter):
@@ -323,10 +324,10 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
 
         Raises:
             TypeError: If redis does not implement RedisLuaScriptRegistry protocol,
-                if event_count or burst is not an integer,
+                if event_count or slack is not an integer,
                 if time_window is not an int, float, or timedelta,
                 or if key_prefix is not a string
-            ValueError: If event_count or time_window is not positive, or if burst is less than or equal to 0
+            ValueError: If event_count or time_window is not positive, or if slack is less than or equal to 0
         """
         if not isinstance(redis, RedisLuaScriptRegistry):
             raise TypeError("redis client must implement register_script")
@@ -399,3 +400,116 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
                 break
 
             await asyncio.sleep(delay)
+
+
+class ApiRateLimiter(metaclass=abc.ABCMeta):
+    """
+    Abstract base class defining the interface for API rate limiting.
+
+    This class serves as a template for implementing different rate limiting strategies.
+    All concrete API rate limiter implementations should inherit from this class and
+    implement the check method.
+    """
+
+    @abc.abstractmethod
+    async def check(self, identifier: str) -> tuple[bool, int]:
+        """
+        Check if the rate limit has been exceeded for the given identifier.
+
+        Args:
+            identifier: A unique string identifying the client (e.g., user_id, IP address)
+
+        Returns:
+            bool: True if the request is within rate limits, False if it exceeds them
+        """
+        ...
+
+
+class RedisSlidingWindowApiRateLimiter(ApiRateLimiter):
+    _event_count: int
+    _time_window: int
+    _script: RedisLuaScriptExecutor
+    _key_prefix: str
+
+    def __init__(
+        self,
+        redis: RedisLuaScriptRegistry,
+        event_count: int,
+        time_window: int | float | timedelta = 1.0,
+        key_prefix: str = "rate_limiter:",
+    ) -> None:
+        """
+        Initialize an API rate limiter with specified parameters.
+
+        Args:
+            redis (RedisLuaScriptExecutor): A Redis client that can register and execute Lua scripts.
+                Must implement the RedisLuaScriptRegistry protocol which provides script registration
+                capabilities.
+            event_count (int): Maximum number of events allowed in the time window
+            time_window (int | float | timedelta): Time period in seconds (unless using timedelta) for the rate limit (default: 1.0)
+            key_prefix (str): Prefix for Redis keys to avoid collisions (default: rate_limiter)
+
+        Raises:
+            TypeError: If redis does not implement RedisLuaScriptRegistry protocol,
+                if event_count is not an integer,
+                if time_window is not an int, float, or timedelta,
+                or if key_prefix is not a string
+            ValueError: If event_count or time_window is not positive
+        """
+        if not isinstance(redis, RedisLuaScriptRegistry):
+            raise TypeError("redis client must implement register_script")
+        if not isinstance(event_count, int):
+            raise TypeError("event_count must be an integer")
+        if not isinstance(key_prefix, str):
+            raise TypeError("key_prefix must be a string")
+
+        if event_count <= 0:
+            raise ValueError("event_count must be positive")
+
+        if isinstance(time_window, (int, float)):
+            tw = timedelta(seconds=time_window)
+        elif isinstance(time_window, timedelta):
+            tw = time_window
+        else:
+            raise TypeError("time_window must be an int, float, or timedelta")
+
+        if tw.total_seconds() <= 0:
+            raise ValueError("time_window must be positive")
+
+        self._event_count = event_count
+        self._time_window = int(tw.total_seconds())
+        self._script = redis.register_script("""
+            local key = KEYS[1]
+            local now = tonumber(ARGV[1])
+            local window = tonumber(ARGV[2])
+            local max_events = tonumber(ARGV[3])
+
+            -- Clean up old events
+            redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+
+            -- Count recent events
+            local count = redis.call('ZCARD', key)
+
+            -- Check if we're within limits
+            if count < max_events then
+                -- Add new event
+                redis.call('ZADD', key, now, tostring(now))
+                redis.call('EXPIRE', key, window)
+                return {1, 0}
+            end
+
+            -- If we're at limit, calculate time until next request is allowed
+            local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')[2]
+            local time_remaining = math.max(0, math.ceil(tonumber(oldest) + window - now))
+
+            return {0, time_remaining}
+        """)
+        self._key_prefix = key_prefix
+
+    async def check(self, identifier: str) -> tuple[bool, int]:
+        key = f"{self._key_prefix}{identifier}"
+        now = int(datetime.now().timestamp())
+
+        result, time_remaining = await self._script(keys=[key], args=[now, self._time_window, self._event_count])
+
+        return result == 1, time_remaining

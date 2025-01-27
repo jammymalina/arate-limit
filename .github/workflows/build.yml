@@ -32,7 +32,7 @@ jobs:
       - name: Run lint check
         run: uv run ruff check --exit-non-zero-on-fix
       - name: Run type check
-        run: uv run mypy src
+        run: uv run mypy src tests
       - name: Run tests
         run: uv run pytest tests
       - name: Build the library
