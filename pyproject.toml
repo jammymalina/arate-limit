@@ -1,6 +1,6 @@
 [project]
 name = "arate-limit"
-version = "1.1.5"
+version = "1.1.6"
 description = "Asyncio rate limiter"
 readme = "README.md"
 authors = [
@@ -8,18 +8,18 @@ authors = [
 ]
 
 classifiers = [
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.13',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Information Technology',
-    'Operating System :: OS Independent',
-    'Topic :: Software Development :: Libraries :: Python Modules',
-    'Topic :: Internet',
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
 ]
 
 requires-python = ">=3.10"

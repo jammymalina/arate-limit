@@ -4,7 +4,7 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "arate-limit"
-version = "1.1.5"
+version = "1.1.6"
 source = { editable = "." }
 
 [package.dev-dependencies]
