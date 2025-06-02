@@ -1,6 +1,6 @@
 [project]
 name = "arate-limit"
-version = "1.1.4"
+version = "1.1.5"
 description = "Asyncio rate limiter"
 readme = "README.md"
 authors = [
@@ -32,7 +32,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "mypy>=1.16.0",
-    "pytest>=8.3.5",
+    "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "pytest-mock>=3.14.1",
     "pytest-timeout>=2.4.0",
@@ -41,9 +41,9 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 120
-
 target-version = "py310"
+line-length = 120
+lint.extend-select = ["I"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
