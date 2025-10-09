@@ -29,7 +29,7 @@ A rate limiter that implements the leaky bucket algorithm, which smooths out bur
 ```python
 import asyncio
 
-from rate_limiter import LeakyBucketRateLimiter
+from arate_limit import LeakyBucketRateLimiter
 
 async def example():
     # Allow 100 requests per minute with some slack
@@ -52,7 +52,7 @@ More sophisticated rate limiting with burst support:
 ```python
 from datetime import timedelta
 
-from rate_limiter import TokenBucketRateLimiter
+from arate_limit import TokenBucketRateLimiter
 
 async def example():
     # Allow 1000 requests per hour with burst of 100
@@ -70,7 +70,7 @@ async def example():
 Distributed rate limiting using Redis:
 
 ```python
-from rate_limiter import RedisSlidingWindowRateLimiter
+from arate_limit import RedisSlidingWindowRateLimiter
 import redis.asyncio as redis
 
 async def example():
@@ -92,7 +92,7 @@ async def example():
 Distributed API rate limiting using Redis:
 
 ```python
-from rate_limiter import RedisSlidingWindowApiRateLimiter
+from arate_limit import RedisSlidingWindowApiRateLimiter
 import redis.asyncio as redis
 
 async def example():
