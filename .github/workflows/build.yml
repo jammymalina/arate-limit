@@ -25,7 +25,7 @@ jobs:
           - 6379:6379
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python-version }}
@@ -37,5 +37,3 @@ jobs:
         run: uv run pytest tests
       - name: Build the library
         run: uv build
-
-
