@@ -79,7 +79,7 @@ class LeakyBucketRateLimiter(RateLimiter):
     _max_slack: int
     _state: AtomicInt
 
-    def __init__(self, event_count: int, time_window: int | float | timedelta = 1.0, slack: int = 10) -> None:
+    def __init__(self, event_count: int, time_window: float | timedelta = 1.0, slack: int = 10) -> None:
         """
         Initialize a rate limiter with specified parameters.
 
@@ -164,7 +164,7 @@ class TokenBucketRateLimiter(RateLimiter):
     _last_event: datetime
     _lock: asyncio.Lock
 
-    def __init__(self, event_count: int, time_window: int | float | timedelta = 1.0, burst: int = 100) -> None:
+    def __init__(self, event_count: int, time_window: float | timedelta = 1.0, burst: int = 100) -> None:
         """
         Initialize a rate limiter with specified parameters.
 
@@ -263,14 +263,12 @@ class TokenBucketRateLimiter(RateLimiter):
 
     async def _advance(self, now: datetime) -> tuple[datetime, datetime, float]:
         last = self._last
-        if now < last:
-            last = now
+        last = min(last, now)
 
         elapsed = now - last
         delta = self._tokens_from_duration(elapsed)
         tokens = self._tokens + delta
-        if tokens > self._burst:
-            tokens = self._burst
+        tokens = min(tokens, self._burst)
         return (now, last, tokens)
 
     def _duration_from_tokens_ns(self, tokens: float) -> int:
@@ -306,7 +304,7 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
         self,
         redis: RedisLuaScriptRegistry,
         event_count: int,
-        time_window: int | float | timedelta = 1.0,
+        time_window: float | timedelta = 1.0,
         slack: int = 10,
         key_prefix: str = "rate_limiter:",
     ) -> None:
@@ -393,7 +391,7 @@ class RedisSlidingWindowRateLimiter(RateLimiter):
         key = f"{self._key_prefix}{self._event_count}:{self._time_window}:{self._max_slack}"
 
         while True:
-            now = datetime.now().timestamp()
+            now = datetime.now(timezone.utc).timestamp()
             delay = await self._script(keys=[key], args=[now, self._time_window, self._event_count, self._max_slack])
 
             if delay == 0:
@@ -435,7 +433,7 @@ class RedisSlidingWindowApiRateLimiter(ApiRateLimiter):
         self,
         redis: RedisLuaScriptRegistry,
         event_count: int,
-        time_window: int | float | timedelta = 1.0,
+        time_window: float | timedelta = 1.0,
         key_prefix: str = "rate_limiter:",
     ) -> None:
         """
@@ -508,7 +506,7 @@ class RedisSlidingWindowApiRateLimiter(ApiRateLimiter):
 
     async def check(self, identifier: str) -> tuple[bool, int]:
         key = f"{self._key_prefix}{identifier}"
-        now = datetime.now().timestamp()
+        now = datetime.now(timezone.utc).timestamp()
 
         result, time_remaining = await self._script(keys=[key], args=[now, self._time_window, self._event_count])
 

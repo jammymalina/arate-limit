@@ -1,7 +1,7 @@
 import asyncio
 import uuid
-from datetime import datetime
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 
 import pytest
 import redis.asyncio as redis_asyncio
@@ -59,9 +59,9 @@ async def test_leaky_bucket_rate_limiter(mocker: MockerFixture) -> None:
         await rate_limiter.wait()
         await call_counter()
 
-    start = datetime.now()
+    start = datetime.now(timezone.utc)
     await asyncio.gather(*(_call() for _ in range(100)))
-    end = datetime.now()
+    end = datetime.now(timezone.utc)
 
     assert (end - start).total_seconds() == pytest.approx(5.0, 0.2)
     assert call_counter.await_count == 100
@@ -82,9 +82,9 @@ async def test_token_bucket_rate_limiter(mocker: MockerFixture) -> None:
         await rate_limiter.wait()
         await call_counter()
 
-    start = datetime.now()
+    start = datetime.now(timezone.utc)
     await asyncio.gather(*(_call() for _ in range(100)))
-    end = datetime.now()
+    end = datetime.now(timezone.utc)
 
     assert (end - start).total_seconds() == pytest.approx(5.0, 0.2)
     assert call_counter.await_count == 100
@@ -109,9 +109,9 @@ async def test_redis_sliding_window_rate_limiter(mocker: MockerFixture, redis_cl
         await rate_limiter.wait()
         await call_counter()
 
-    start = datetime.now()
+    start = datetime.now(timezone.utc)
     await asyncio.gather(*(_call() for _ in range(100)))
-    end = datetime.now()
+    end = datetime.now(timezone.utc)
 
     assert (end - start).total_seconds() == pytest.approx(5.0, 0.5)
     assert call_counter.await_count == 100
